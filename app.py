@@ -5,7 +5,8 @@ import random
 app = Flask(__name__)
 
 # Directory path to list files from
-FILES_PATH = r'C:\Users\Admin\Desktop\cfg\cfg'
+# Adjust this path according to your Render.com environment or configure it dynamically
+FILES_PATH = '/path/to/your/files'  # Replace with your actual path
 
 # List to keep track of downloaded files
 downloaded_files = []
@@ -40,4 +41,5 @@ def download():
         return f"An error occurred: {str(e)}"
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Run the application with debug mode enabled for development
+    app.run(host='0.0.0.0', port=5000)
