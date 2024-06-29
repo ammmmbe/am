@@ -4,11 +4,10 @@ import random
 
 app = Flask(__name__)
 
-# Directory path to list files from
-# Adjust this path according to your Render.com environment or configure it dynamically
-FILES_PATH = '/path/to/your/files'  # Replace with your actual path
+# Directory path to list files from - use environment variable for flexibility
+FILES_PATH = os.getenv('FILES_PATH', '/default/files/path')
 
-# List to keep track of downloaded files
+# List to keep track of downloaded files - could use a database in production
 downloaded_files = []
 
 @app.route('/')
@@ -41,5 +40,6 @@ def download():
         return f"An error occurred: {str(e)}"
 
 if __name__ == '__main__':
-    # Run the application with debug mode enabled for development
+    # Use Gunicorn as the WSGI server, bind to 0.0.0.0 for external access
+    # Run with 4 worker processes (adjust as needed based on your application's needs)
     app.run(host='0.0.0.0', port=5000)
