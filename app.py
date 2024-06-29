@@ -4,10 +4,10 @@ import random
 
 app = Flask(__name__)
 
-# Directory path to list files from - use environment variable for flexibility
-FILES_PATH = os.getenv('FILES_PATH', '/default/files/path')
+# Directory path to list files from
+FILES_PATH = r'C:\Users\Admin\Desktop\cfg\cfg'
 
-# List to keep track of downloaded files - could use a database in production
+# List to keep track of downloaded files
 downloaded_files = []
 
 @app.route('/')
@@ -40,6 +40,4 @@ def download():
         return f"An error occurred: {str(e)}"
 
 if __name__ == '__main__':
-    # Use Gunicorn as the WSGI server, bind to 0.0.0.0 for external access
-    # Run with 4 worker processes (adjust as needed based on your application's needs)
     app.run(host='0.0.0.0', port=5000)
