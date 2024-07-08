@@ -1,444 +1,88 @@
-game.StarterGui:SetCore(
-	"SendNotification",
-	{
-		Title = "NoraWare",
-		Text = "Loading...",
-	}
-)
-wait(3)
-
-game.StarterGui:SetCore(
-	"SendNotification",
-	{
-		Title = "NoraWare",
-		Text = "Enjoy dombo",
-	}
-)
-getgenv().NemesisPreBeta = {
-    ["Settings"] = {
-        Disabling = {Toggle = false, Keybind = "C"},
-        UpdateTickDelay = 0.03
-    },
-    ["Camlock"] = {
-        Toggling = {
-            Enable = true, 
-            Keybind = "C"
-        },
-        Settings = {
-            Prediction = { 
-                true, 
-                999.999, 
-                false,
-                .003
-            },
-            Smoothing = {
-                smoothness = true, 
-                x = 100, 
-                y = 100
-            },
-            OffSets = {
-                Jump = {
-                    Enable = false, 
-                    [1] = Vector3.new(0, 3, 0)
-                }
-            }
-        },
-        Conditions = {
-            Player = {
-                WallCheck = true, 
-                Grabbed = false, 
-                Knocked = true, 
-                CrewID = false
-            },
-            BodyParts = {"HumanoidRootPart", "Head"}
-        }
-    },
-    ["Silent"] = {
-        Toggling = { Enable = true },
-        Settings = {
-            Prediction = { true , 0.149511 , false, 0.003 },
-            HitChance = 100,
-            Resolver = true,
-            OffSets = {
-                Jump = {
-                    Enable = false, 
-                    [1] = Vector3.new(0, 0, 0)
-                }
-            }
-        },
-        Conditions = {
-            Player = { WallCheck = false, Grabbed = false, Knocked = false, CrewID = false },
-            BodyParts = {"HumanoidRootPart", "UpperTorso", "Head"}
-        }
-    },
-    ["Field Of View"] = {
-        Enable = true, 
-        Size = 1000, 
-        Color = Color3.fromRGB(255, 255, 255), 
-    },
-    ["Miscs"] = {
-        ["Sorting"] = {
-            Toggled = false,
-            Key = "F",
-            alphabetically = true,
-            Ammo = false,
-            Custom = {
-                Enable = false,
-                List = {[1] = "[Revolver]", [2] = "[Chicken]"} -- // etc
-            }
-        },
-        ["Animation"] = {
-            Enable = true,
-            Animations = {["Greet"] = {[1] = false, [2] = "V"}}
-        }
-    }
-}
-
-
-
-
-
-local DUpvalue, Round, V3, V2, CF, Rservice, UserInput, Ping, Mouse, backpack  = debug.getupvalue, math.round, Vector3.new, Vector2.new, CFrame.new, game:GetService("RunService"), game:GetService("UserInputService"), game:GetService("Stats").PerformanceStats.Ping, game:GetService("Players").LocalPlayer:GetMouse(), game:GetService("Players").LocalPlayer.Backpack
-local Players, Self, Character, Camera = game:GetService("Players"), game:GetService("Players").LocalPlayer, game:GetService("Players").LocalPlayer.Character or  game:GetService("Players").LocalPlayer.CharacterAdded:Wait(), game:GetService("Workspace").CurrentCamera
-local idx, endp
-
-
-local Storage = {
-    Drawings = {},
-    Connections = {},
-    targets = {
-        [1] = nil,
-        [2] = nil
-    },
-    ValuePosition = nil,
-    bodyparts = {
-        [1] = "",
-        [2] = ""
-    },
-    update_tick = tick(),
-    etc = {
-        Ctoggled = false,
-        Mtoggled = false
-    },
-    items = {}
-}
-
-
-
-function NewConnection(type, callback)
-    local connection = type:Connect(callback)
-    Storage.Connections[#Storage.Connections+1] = connection
-    return connection
-end
-
-function Chance(chance, maxchance)
-    return math.random(maxchance) <= chance
-end
-
-
-function Thread(Function, ...)
-    local co
-    local success, result
-
-    if Function ~= nil then
-        co = coroutine.create(Function)
-        success, result = coroutine.resume(co, ...)
-    end
-    if success ~= nil and co ~= nil and Function ~= nil then
-        return result
-    end
-end
-
-
-function wallcheck(origin)
-    local parts = Camera:GetPartsObscuringTarget({origin.Position,  Character.HumanoidRootPart.Position}, {Camera, Character, origin.Parent})
-    if #parts == 0 then
-        return true
-    end
-    return false
-end
-
-function Grabbed(player)
-    if player.Character ~= nil  then
-        return not player.Character:FindFirstChild("GRABBING_CONSTRAINT")
-    end
-end
-
-function Knocked(player)
-    if player.Character ~= nil  then
-        return player.Character.BodyEffects["K.O"].Value ~= true
-    end
-end
-
-
-local pingHistory = {}
-local lastPingUpdateTime = tick()
-
-
-
-function GetPrediction()
-    local currentPing = Ping:GetValue() * 0.003
-    if getgenv().NemesisPreBeta.Camlock.Settings.Prediction[3] or getgenv().NemesisPreBeta.Silent.Settings.Prediction[3] then
-        return currentPing
-    else
-        return getgenv().NemesisPreBeta.Camlock.Settings.Prediction[2] and getgenv().NemesisPreBeta.Silent.Settings.Prediction[2]
-    end
-end
-
-function Crew(player)
-    if game.Players.LocalPlayer:FindFirstChild("DataFolder"):FindFirstChild("Information"):FindFirstChild("Crew") then
-        local SelfCrewValue =  game.Players.LocalPlayer:FindFirstChild("DataFolder"):FindFirstChild("Information"):FindFirstChild("Crew")
-        if SelfCrewValue.Value ~= 0 then
-            if player:FindFirstChild("DataFolder"):FindFirstChild("Information"):FindFirstChild("Crew")  then
-                local Enimy = player:FindFirstChild("DataFolder"):FindFirstChild("Information"):FindFirstChild("Crew")
-                if Enimy.Value == SelfCrewValue.Value then
-                    return false
-                end
-            end
-        end
-    end
-    return true
-end
-
-
-
-function Closespart(player, hitboxes)
-    local closestPart
-    local closestDistanc = math.huge
-    for _, hitbox in pairs(hitboxes) do
-        local part = player.Character:FindFirstChild(hitbox)
-        if part then
-            local pos = Camera:WorldToViewportPoint(part.Position)
-            local distance = (UserInput:GetMouseLocation() - V2(pos.X, pos.Y)).Magnitude
-            if distance < closestDistanc then
-                closestPart = part
-                closestDistanc = distance
-            end
-        end
-    end
-    return closestPart
-end
-
-
-
-function isInCustomList(toolName)
-    for _, customName in ipairs(getgenv().NemesisPreBeta.Miscs.Sorting.Custom.List) do
-        if toolName == customName then
-            return true
-        end
-    end
-    return false
-end
-
-
-function GetClosest(table)
-    local MaxDistance = getgenv().NemesisPreBeta["Field Of View"].Enable and getgenv().NemesisPreBeta["Field Of View"].Size or math.huge
-    local Target
-
-    for i,v in pairs(Players:GetPlayers()) do
-        if v ~= Self and v.Character ~= nil and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Head") then
-            local ViewPort, Visible = Camera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
-            local Mag = (UserInput:GetMouseLocation() - Vector2.new(ViewPort.X, ViewPort.Y)).Magnitude
-            if MaxDistance > Mag and Visible and (
-                (table.WallCheck and wallcheck(v.Character.HumanoidRootPart)) or true and
-                (table.Grabbed and Grabbed(v)) or true and
-                (table.Knocked and Knocked(v)) or true and
-                (table.CrewID and Crew(v)) or true 
-            ) then
-                MaxDistance = Mag
-                Target = v
-            end
-        end
-    end
-    return Target
-end
-
-function Velocity(Target, method)
-    if method == true then
-        local pos = Target.Character.HumanoidRootPart.Position
-        local lastTime = tick()
-        local currentPos, currentTime
-        local connection
-        connection =
-            game:GetService("RunService").Heartbeat:Connect(
-            function()
-                currentPos = Target.Character.HumanoidRootPart.Position
-                currentTime = tick()
-                connection:Disconnect()
-            end
-        )
-        wait(0.01)
-        local velocity = (currentPos - pos) / (currentTime - lastTime)
-        return Vector3.new(math.floor(velocity.X), math.floor(velocity.Y), math.floor(velocity.Z))
-    else
-        return Target.character:FindFirstChild("HumanoidRootPart").AssemblyLinearVelocity
-    end
-end
-
-function playAnimation(animationName)
-    local args = {
-        [1] = "AnimationPack",
-        [2] = animationName,
-    }
-    game:GetService("ReplicatedStorage").MainEvent:FireServer(unpack(args))
-end
-
-
--- // updates
-
-function UpdateSilent()
-    local SilentTable = getgenv().NemesisPreBeta.Silent
-    if SilentTable.Toggling.Enable then
-        Storage.targets[2] = GetClosest(SilentTable.Conditions.Player)
-        if Storage.targets[2] ~= nil and Storage.targets[2].Character ~= nil and Storage.targets[2].Character:FindFirstChild("HumanoidRootPart") then
-            Storage.bodyparts[2] =  tostring(Closespart(Storage.targets[2], SilentTable.Conditions.BodyParts))
-            local position = Storage.targets[2].Character[Storage.bodyparts[2]].Position
-            if SilentTable.Settings.OffSets.Jump.Enable and Storage.targets[2].Character:FindFirstChildOfClass("Humanoid"):GetState() == Enum.HumanoidStateType.Freefall then
-                position = position + SilentTable.Settings.OffSets.Jump[1]
-            end
-            Storage.CFposition = position + (SilentTable.Settings.Prediction and Velocity(Storage.targets[2], SilentTable.Settings.Resolver) * GetPrediction() or 0)
-        end
-    end
-end
-
-
-function UpdateCamlock()
-    local CamLockTable = getgenv().NemesisPreBeta.Camlock
-    if Storage.etc.Ctoggled and CamLockTable.Toggling.Enable and Storage.targets[1] ~= nil and Storage.targets[1].Character ~= nil then
-        local position = Storage.targets[1].Character[Storage.bodyparts[1]].Position
-
-        if CamLockTable.Settings.OffSets.Jump.Enable and Storage.targets[1].Character:FindFirstChildOfClass("Humanoid"):GetState() == Enum.HumanoidStateType.Freefall then
-            position = position + CamLockTable.Settings.OffSets.Jump[1]
-        end
-
-        if CamLockTable.Settings.Smoothing.enable then
-            local goal = CFrame.new(Camera.CFrame.Position, position + (CamLockTable.Settings.Prediction[1] * GetPrediction() or Vector3.new()))
-            Camera.CFrame = Camera.CFrame:Lerp(goal, CamLockTable.Settings.Smoothing.x, CamLockTable.Settings.Smoothing.y)
-        else
-            local prediction = CamLockTable.Settings.Prediction[1] and Storage.targets[1].Character.HumanoidRootPart.AssemblyLinearVelocity * GetPrediction() or Vector3.new()
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, position + prediction)
-        end
-    end
-end
-
-do -- main connection
-
-    NewConnection(UserInput.InputBegan, function(key, wtv)
-        if key.KeyCode == Enum.KeyCode[getgenv().NemesisPreBeta.Camlock.Toggling.Keybind:upper()] and not wtv then
-            if getgenv().NemesisPreBeta.Camlock.Toggling.Enable then
-                Storage.etc.Ctoggled = not Storage.etc.Ctoggled
-                Storage.targets[1] = GetClosest(getgenv().NemesisPreBeta.Camlock.Conditions.Player)
-
-                if  Storage.targets[1] and  Storage.targets[1].Character then
-                    Storage.bodyparts[1] = tostring(Closespart(Storage.targets[1], getgenv().NemesisPreBeta.Camlock.Conditions.BodyParts))
-
-                end
-            else
-                if  Storage.targets[1] ~= nil then
-                    Storage.targets[1] = nil
-                end
-            end
-        end
-    end)
-
-    NewConnection(UserInput.InputBegan, function(key, wtv)
-        if getgenv().NemesisPreBeta.Settings.Disabling.Toggle and key.KeyCode == Enum.KeyCode[getgenv().NemesisPreBeta.Settings.Disabling.Keybind:upper()]  and not wtv then
-            for i,v in pairs(Storage.Connections) do
-                if v then
-                    v:Disconnect()
-                end
-            end
-            for i,v in pairs(Storage.Drawings) do
-                if v and v.__OBJECT_EXISTS then
-                    print("f")
-                end
-            end
-        end
-    end)
-
-    NewConnection(UserInput.InputBegan, function(key, wtv)
-        if getgenv().NemesisPreBeta.Miscs.Sorting.Toggled and key.KeyCode == Enum.KeyCode[getgenv().NemesisPreBeta.Miscs.Sorting.Key:upper()] and not wtv then
-            local items = {}
-
-            if getgenv().NemesisPreBeta.Miscs.Sorting.Custom.Enable then
-                for _, customName in ipairs(getgenv().NemesisPreBeta.Miscs.Sorting.Custom.List) do
-                    for _, item in pairs(backpack:GetChildren()) do
-                        if item:IsA("Tool") and item.Name == customName then
-                            table.insert(items, 1, item)
-                            break
-                        end
-                    end
-                end
-            end
-            
-            for _, item in pairs(backpack:GetChildren()) do
-                if item:IsA("Tool") and (not getgenv().NemesisPreBeta.Miscs.Sorting.Custom.Enable or not isInCustomList(item.Name)) then
-                    table.insert(items, item)
-                end
-            end
-            
-            if getgenv().NemesisPreBeta.Miscs.Sorting.alphabetically and not getgenv().NemesisPreBeta.Miscs.Sorting.Custom.Enable then
-                table.sort(items, function(a, b)
-                    return a.Name < b.Name
-                end)
-            end
-            
-            if getgenv().NemesisPreBeta.Miscs.Sorting.Ammo and not getgenv().NemesisPreBeta.Miscs.Sorting.Custom.Enable then
-                table.sort(items, function(a, b)
-                    return a.Value > b.Value
-                end)
-            end
-
-            for _, item in ipairs(items) do
-                item.Parent = nil
-                wait(0.01)
-                item.Parent = backpack
-            end
-
-        end
-    end)
-
-    NewConnection(UserInput.InputBegan, function(key, wtv)
-        if getgenv().NemesisPreBeta.Miscs.Animation.Enable and not wtv then
-            for animationName, animationData in pairs(getgenv().NemesisPreBeta.Miscs.Animation.Animations) do
-                if animationData[1] and key.KeyCode == Enum.KeyCode[animationData[2]] then
-                    playAnimation(animationName)
-                    break
-                end
-            end
-        end
-    end)
-
-
-
-
-    NewConnection(Rservice.Heartbeat, function()
-
-            --//  camlock
-            Thread(UpdateCamlock())
-
-            --// Silent UPDATE
-            Thread(UpdateSilent())
-
-    end)
-end
-
-
-    for connection, index in next, getconnections(workspace.CurrentCamera.Changed) do
-        index:Disable()
-    end
-    for connection, index in next, getconnections(workspace.CurrentCamera:GetPropertyChangedSignal("CFrame")) do
-        index:Disable()
-    end
-
-
-local oldIndex
-oldIndex = hookmetamethod(game, "__index", function(t, k)
-	if t:IsA("Mouse") and k == "Hit" or k == "Target" then
-		if  getgenv().NemesisPreBeta.Silent.Toggling.Enable and Chance(getgenv().NemesisPreBeta.Silent.Settings.HitChance, 100) and Storage.targets[2] ~= nil then
-			local Hit = CFrame.new(Storage.CFposition)
-			return (k == "Hit" and Hit)
-		end
-	end
-	return oldIndex(t, k)
-end)
+LuaQ     @nora           [     @@ €@ À  Ê€  É@A‚ÉÀAƒ@   A@ @    @@ €@ À  Ê€  É@A‚É€Bƒ@ À €€ J@ Š€  Ê€  É Ä‡É€Äˆ‰À ‡‰ Å‰I€€†ŠÀ  Ê€  É Æ‹É€Äˆ‰À ‹ÊÀ  
+ B€  Â  Â "A É Œ
+Á  	ÆŽ	ÁG	ÁGÉ Ž
+A  J  IÄ‹…	 †AIÁ	 B A‚	 œ I‘	A‘É ‰À€†Ê€  
+ 	Æ”	D•	Æ•	D–É ”
+ A Á "A É –‰À€“I€€ŠŠÀ  Ê@  É Æ‹‰À ‹Ê  
+ B€ A Â  Â "A É ŒÉÀG™É Æ™
+A  J  IÄ‹…	 †AIÁ	 ‚	 A‚	 œ I‘	A‘É ‰À€†Ê€  
+ 	Ä”	D•	Ä•	D–É ”
+€A 
+ ÁÁ "A€É –‰À€“I€ ˜ŠÀ  ‰ Æ‹‰ÀM›Å@ Æ€ÎÁ AÁ Á Ü€ ‰À œI€€šŠ€  Ê@ É DŸÉ ÐŸÉ Æ É D¡
+  	Ä‹J  IAÑ‘IÁQ£	A¢É ¡‰À€žÊ€  É Æ‹
+A  J  IÄ‘IÁR£	A¥É ¤‰À ¤I€ ž	@ †  @S E€ FÀÓ … 	 †@IÅ  Æ@ÉA AIE  KÔÁÁ \€…  ‹T œ€Å  ËÔAB Ü€ÆÕÆÁÕ  ‚T ‚€BV‚V‚ E  K‚ÔÁ \‚€FBÖFÂÖ…  ‹‚T œ‚€Å  Ë‚ÔA Ü‚€ÆBÖ  ƒT ƒ€CVWC  À€  ƒT ƒ€CVCWƒWƒ E  KƒÔÁÃ \ƒ€FØƒ€
+ J  	D„°J  	D±J„  IÙ‘IY£	D„±	Ù²J„  IÄÙ‘IÄY£	D³ED \„€ 	D´J„  IÄµID¶	DµJ  	D„¶d     G„ dD  GÄ d„  G dÄ    €   GD d G„
+ dD GÄ
+ J  …D œ„€ ä„   €Ç„ äÄ ÇÄ ä   €     €Ç äD ÇD ä„      €  €   Ç„ äÄ ÇÄ ä Ç äD    ÇD ä„      €Ç„ Å„ Å^dÅ    ÜD€Å„ Å^d    ÜD€Å„ Å^dE   €ÜD€Å„ Å^d… ÜD€Å„ ßdÅ ÜD€ÅD … EÅ FØ
+Fà
+Å @ €FàF á„  ÀþÅD … EÅ FØ
+K…à
+ÁE \€Å  @ €FàF á„  ÀþÃ€	Å  E  ! ä      €	… À 
+ € …      game    StarterGui    SetCore    SendNotification    Title 	   NoraWare    Text    Loading...    wait       @   Enjoy dombo    getgenv    NemesisPreBeta 	   Settings 
+   Disabling    Toggle     Keybind    C    UpdateTickDelay ¸…ëQ¸ž?   Camlock 	   Toggling    Enable    Prediction ¢E¶óý?@ú~j¼t“h?
+   Smoothing    smoothness    x       Y@   y    OffSets    Jump       ð?   Vector3    new            Conditions    Player 
+   WallCheck    Grabbed    Knocked    CrewID 
+   BodyParts    HumanoidRootPart    Head    Silent r5²+-#Ã?
+   HitChance 	   Resolver    UpperTorso    Field Of View    Size      @@   Color    Color3    fromRGB      ào@   Miscs    Sorting    Toggled    Key    F    alphabetically    Ammo    Custom    List    [Revolver]        @
+   [Chicken] 
+   Animation    Animations    Greet    V    debug    getupvalue    math    round    Vector2    CFrame    GetService    RunService    UserInputService    Stats    PerformanceStats    Ping    Players    LocalPlayer 	   GetMouse 	   Backpack 
+   Character    CharacterAdded    Wait 
+   Workspace    CurrentCamera 	   Drawings    Connections    targets     ValuePosition 
+   bodyparts        update_tick    tick    etc 	   Ctoggled 	   Mtoggled    items    NewConnection    Chance    Thread 
+   wallcheck    GetPrediction    Crew    Closespart    isInCustomList    GetClosest 	   Velocity    playAnimation 
+   UpdateSilent    UpdateCamlock    InputBegan 
+   Heartbeat    next    getconnections 
+   workspace    Changed    Disable    GetPropertyChangedSignal    hookmetamethod    __index        €   „       ‹ @  € œ€€Ä   Æ@À  A@ @É€ ž   €       Connect    Connections       ð?                ‚   ‚   ‚   ‚   ‚   ‚   ‚   ƒ   „               †   ˆ     
+   …   †@@À € œ€ Y    €‚@  ‚ € ž   €       math    random     
+   ‡   ‡   ‡   ‡   ‡   ‡   ‡   ‡   ‡   ˆ               ‹   –       W @ À€EA  FÀ€  \ € €EA  FÁÀ€ å  \Á    À €W À €W @€ €W @   €  €     
+   coroutine    create    resume                             ‘   ‘   ‘   ‘   ‘   ‘   ‘   “   “   “   “   “   “   ”   –               ™   Ÿ       D   K À Ê  A@ D€ FÀFAÀâ@ 
+€D  „€ ÆÁ@ "A€\€ ” €  A@ €‚ € ž  ‚   ž   €       GetPartsObscuringTarget 	   Position    HumanoidRootPart    Parent                š   š   š   š   š   š   š   š   š   š   š   š   š   š   ›   ›   ›   œ   œ   ž   ž   Ÿ               ¡   ¥     
+   F @ W@À @€F @ K€À ÁÀ  \€€S € ^   €    
+   Character     FindFirstChild    GRABBING_CONSTRAINT     
+   ¢   ¢   ¢   £   £   £   £   £   £   ¥               §   «     
+   F @ W@À  €F @ F€À FÀÀ F Á @Á   €B@  B € ^   €    
+   Character     BodyEffects    K.O    Value     
+   ¨   ¨   ¨   ©   ©   ©   ©   ©   ©   ©   ©   ©   «               ³   º     *       @ € @@ E€  \€€ FÀÀ F Á F@Á F€Á FÀÁ Z@   €E€  \€€ FÀÀ F Â F@Á F€Á FÀÁ Z   @ €   €E€  \€€ FÀÀ F Á F@Á F€Á F@Â Z   €€E€  \€€ FÀÀ F Â F@Á F€Á F@Â ^   € 
+   	   GetValue ú~j¼t“h?   getgenv    NemesisPreBeta    Camlock 	   Settings    Prediction       @   Silent        @    *   ´   ´   ´   ´   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   µ   ¶   ¶   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   ¸   º               ¼   É     :   E   F@À F€À KÀÀ Á  \€€KÀÀ Á@ \€€KÀÀ Á€ \€€Z    
+€E   F@À F€À KÀÀ Á  \€€KÀÀ Á@ \€€KÀÀ Á€ \€€†ÀÁ W B@€‹À@  œ€€‹À@A œ€€‹À@ œ€€š   €€‹À@  œ€€‹À@A œ€€‹À@ œ€€ÆÀAÁÁ  @ €Â   Þ  B € ^   € 	      game    Players    LocalPlayer    FindFirstChild    DataFolder    Information    Crew    Value             :   ½   ½   ½   ½   ½   ½   ½   ½   ½   ½   ½   ½   ½   ½   ¾   ¾   ¾   ¾   ¾   ¾   ¾   ¾   ¾   ¾   ¾   ¾   ¿   ¿   ¿   À   À   À   À   À   À   À   À   À   À   À   Á   Á   Á   Á   Á   Á   Á   Á   Á   Â   Â   Â   Â   Ã   Ã   È   È   É               Í   Ü    !   Å   Æ@À  @€ €€FÂ@ KÁÀ \‚€Z   €„  ‹BAƒÁœ‚€Ä€ ËÂÁÜ‚  FB†CBƒ€ÍƒÆ‚ÂÀ€@ €€ €À €!  €ùž   €       math    huge    pairs 
+   Character    FindFirstChild    WorldToViewportPoint 	   Position    GetMouseLocation    X    Y 
+   Magnitude     !   Ï   Ï   Ð   Ð   Ð   Ð   Ñ   Ñ   Ñ   Ñ   Ò   Ò   Ó   Ó   Ó   Ó   Ô   Ô   Ô   Ô   Ô   Ô   Ô   Ô   Ô   Õ   Õ   Ö   ×   Ð   Ù   Û   Ü               à   ç        E   …@  œ€€ †€@†À@† A†@A†€A\ À €@ @ €‚€ ž a€  @þB   ^   €       ipairs    getgenv    NemesisPreBeta    Miscs    Sorting    Custom    List        á   á   á   á   á   á   á   á   á   á   â   â   ã   ã   á   ä   æ   æ   ç               ê   þ    d   E   \€€ F@À F€À FÀÀ Z   €€E   \€€ F@À F€À F Á Z@  @ €E@ F€Á ƒ  ÅÀ   B Ü   €€ W ‚@€BÂW€B€€BÂÂB ‚€   €BÂÂBB ‚€  €
+€ ‚C†BÂ†C†ÂCÂ€„€‹Dœ‚ ÅB Æ‚ÄÃDFEÜ‚€Â†BE@  	€Z  €€Æ‚E Ú  @€ÅÂ CÂCÜ‚ ÚB  À€ÆF Ú   €Å  €Ü‚ ÚB  À€ÆBF Ú   €ÅB  €Ü‚ ÚB  À€Æ‚F Ú   €ÅÂ  €Ü‚ ÚB  Àÿ@  € €á€   íž   €       getgenv    NemesisPreBeta    Field Of View    Enable    Size    math    huge    pairs    GetPlayers 
+   Character     FindFirstChild    HumanoidRootPart    Head    WorldToViewportPoint 	   Position    GetMouseLocation    Vector2    new    X    Y 
+   Magnitude 
+   WallCheck 
+   wallcheck    Grabbed    Knocked    CrewID    Crew     d   ë   ë   ë   ë   ë   ë   ë   ë   ë   ë   ë   ë   ë   ë   ë   ë   ì   î   î   î   î   î   î   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ï   ð   ð   ð   ð   ð   ð   ñ   ñ   ñ   ñ   ñ   ñ   ñ   ñ   ñ   ñ   ò   ò   ò   ò   ó   ó   ó   ó   ó   ó   ó   ó   ó   ô   ô   ô   ô   ô   ô   ô   ô   õ   õ   õ   õ   õ   õ   õ   õ   ö   ö   ö   ö   ö   ö   ö   ö   ø   ù   î   û   ý   þ                      
+4    À €
+€†@@ †€@†À@Å  Ü€€  ÅA ËÁAÂ Ü€ÆÂËAÂd           €   Ü€€€Å Â ÜA Í 
+Â€Ï‚ BCE‚ FÂÃ†Ä\‚ …‚ †ÂCÆBÄœ‚ Å‚ ÆÂÃƒÄÜ     £   @€†ÀD ‹ E  œ€€†@Ež   €    
+   Character    HumanoidRootPart 	   Position    tick    game    GetService    RunService 
+   Heartbeat    Connect    wait {®Gáz„?   Vector3    new    math    floor    X    Y    Z 
+   character    FindFirstChild    AssemblyLinearVelocity                  €  @ @@ €@    À  €€    € A @  €    
+   Character    HumanoidRootPart 	   Position    tick    Disconnect        	  	  	  	  	  
+  
+  
+                  4                                           
+                                                                                     J€  I@@€I  …À  ‹ AA œ€€†€A‹ÀA @€  œ@   € 	         ð?   AnimationPack        @   game    GetService    ReplicatedStorage 
+   MainEvent    FireServer    unpack                                                !  .    f      €€ @@ €@ FÀ@ F Á Z    €D   F@Á …À Æ B Æ@Âœ€ I€ ƒD   F@Á F€Á W€Â  €D   F@Á F€Á FÀÂ W€Â €€D   F@Á F€Á FÀÂ K Ã Á@ \€€Z   @€D   F€Ã …À Å    AAAFB FAÄÜ €œ€  I€ ƒD   F@Á F€Á FÀÂ „   †€C†€AF€€ F€Ä †ÀD † E†@E† Aš   €€„   †@A†€A†ÀB‹€EÁ œ€€‹ Fœ€ Å@ Æ€ÆÆÀÆÀ  €†ÀD † E†@E† GL€€ „   ÆÀD Æ€ÇÚ   À€ÅÀ   AAAFÁD FÈÜ€€A € Î Ú@    €Á€ ÌÀ€ ‰À€Ž € #      getgenv    NemesisPreBeta    Silent 	   Toggling    Enable    targets        @   GetClosest    Conditions    Player  
+   Character    FindFirstChild    HumanoidRootPart 
+   bodyparts 	   tostring    Closespart 
+   BodyParts 	   Position 	   Settings    OffSets    Jump    FindFirstChildOfClass 	   Humanoid 	   GetState    Enum    HumanoidStateType 	   Freefall       ð?   CFposition    Prediction 	   Velocity 	   Resolver    GetPrediction             f   "  "  "  "  #  #  #  #  $  $  $  $  $  $  $  %  %  %  %  %  %  %  %  %  %  %  %  %  %  %  %  %  %  %  %  &  &  &  &  &  &  &  &  &  &  &  &  '  '  '  '  '  '  '  '  '  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  )  )  )  )  )  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  +  .              1  B    	|      €€ @@ €@ D   FÀÀ F Á Z   @€F@A F€Á Z   @€D   FÀÁ F Â W@Â  €D   FÀÁ F Â F€Â W@Â €€D   FÀÁ F Â F€Â „   †ÀB† BF€€ F Ã †@C †€C†ÀC†€Aš   €€„   †ÀA† B†€B‹ DA œ€€‹€Dœ€ ÅÀ Æ ÅÆ@ÅÀ  €†@C †€C†ÀC† BL€€ †@C †€E†ÀEš   À€…  †@FÄ € Æ ÆÆ ÃAC FBEÁ \€ AA  € € AF€  œ€€Ä € € FAG€ ÆAC ÆÅÆÇBC ‚EÂG€É ŒÀ€†@C †€F† Bš   €€„   †ÀA† B†€B† H†@HÅÀ Ü€€ ŽÀ š@  € €…  †@Fœ€€ Ä €  AFD€ FÆFÃŒ€ €É Œ € "      getgenv    NemesisPreBeta    Camlock    etc 	   Ctoggled 	   Toggling    Enable    targets       ð? 
+   Character 
+   bodyparts 	   Position 	   Settings    OffSets    Jump    FindFirstChildOfClass 	   Humanoid 	   GetState    Enum    HumanoidStateType 	   Freefall 
+   Smoothing    enable    CFrame    new    Prediction    GetPrediction    Vector3    Lerp    x    y    HumanoidRootPart    AssemblyLinearVelocity     |   2  2  2  2  3  3  3  3  3  3  3  3  3  3  3  3  3  3  3  3  3  3  3  3  4  4  4  4  4  4  4  4  4  6  6  6  6  6  6  6  6  6  6  6  6  6  6  6  6  6  6  6  6  7  7  7  7  7  :  :  :  :  :  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  ;  <  <  <  <  <  <  <  <  <  <  <  <  <  <  >  >  >  >  >  >  >  >  >  >  >  >  >  >  >  >  >  >  >  ?  ?  ?  ?  ?  ?  ?  ?  ?  B              F  V   O   † @ Å@  Æ À  € Á@AAAAÁA Æ À À€Z@  @€…€  œ€€ †À@† A†@A† Bš   @€„   †@BÄ   Æ@ÂÆ€ÂÓ €‰À …„   †ÀBÅ@   € Á@ACÁCÜ€ ‰À †„   †ÀB† Cš   €€„   †ÀB† C† Dš    €„   †@DÅ€ Á D  FÁÂFÃ…  œ€ †Á@†A†C†E€Ü€  ‰À †À€„   †ÀB† CW@E€ €„   †ÀB‰@E† €       KeyCode    Enum    getgenv    NemesisPreBeta    Camlock 	   Toggling    Keybind    upper    Enable    etc 	   Ctoggled    targets       ð?   GetClosest    Conditions    Player 
+   Character 
+   bodyparts 	   tostring    Closespart 
+   BodyParts      O   G  G  G  G  G  G  G  G  G  G  G  G  G  G  G  G  H  H  H  H  H  H  H  H  I  I  I  I  I  I  I  J  J  J  J  J  J  J  J  J  J  J  L  L  L  L  L  L  L  L  L  L  L  M  M  M  M  M  M  M  M  M  M  M  M  M  M  M  M  O  Q  Q  Q  Q  Q  R  R  R  V              X  e   	3   …   œ€€ †@@†€@†À@† Aš   @
+€†@A Å€ Æ@Á  € A@@Á@ÁAB Æ À À€Z@  @€…@ Ä   Æ€Âœ À €š  @ €ËÁBÜA ¡€  @þ…@ Ä   Æ Ãœ À€š  @€ÆACÚ  € €Å Â ÜA ¡€  @ý €       getgenv    NemesisPreBeta 	   Settings 
+   Disabling    Toggle    KeyCode    Enum    Keybind    upper    pairs    Connections    Disconnect 	   Drawings    __OBJECT_EXISTS    print    f     3   Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Y  Z  Z  Z  Z  Z  [  [  \  \  Z  ]  _  _  _  _  _  `  `  `  `  `  a  a  a  _  b  e              g     ž   …   œ€€ †@@†€@†À@† Aš    %€†@A Å€ Æ@Á  € A@@Á@ÁAB Æ À €!€Z@   !€Š   Å   Ü€€ Æ@ÀÆ€ÀÆÀÀÆ@ÂÆ€ÂÚ   €€ÅÀ   € A@@Á@ABCÜ €€B D  K‚Ã\  €€KÃCÁ \ƒ€Z  @€FCDÀ€€Eƒ FÃÄ€ Á   \C @ €!‚  €ûá€  €ùÅ@   C Ü  À€ÂÃ ‚€  €€  ‚€ B@‚@Â@BB‚B   €B FBÄ‚ B   €‚ ÂD@ €€B€á€  @ùÅ   Ü€€ Æ@ÀÆ€ÀÆÀÀÆ€ÅÚ   @€Å   Ü€€ Æ@ÀÆ€ÀÆÀÀÆ@ÂÆ€ÂÚ@   €Å€ ÆÀÅ  d  Ü@€Å   Ü€€ Æ@ÀÆ€ÀÆÀÀÆ ÆÚ   @€Å   Ü€€ Æ@ÀÆ€ÀÆÀÀÆ@ÂÆ€ÂÚ@   €Å€ ÆÀÅ  dA  Ü@€ÅÀ   Ü @€ÉÆŒÂ A B   É‚Œá€  Àý €       getgenv    NemesisPreBeta    Miscs    Sorting    Toggled    KeyCode    Enum    Key    upper    Custom    Enable    ipairs    List    pairs    GetChildren    IsA    Tool    Name    table    insert       ð?   isInCustomList    alphabetically    sort    Ammo    Parent     wait {®Gáz„?       }         † @ Æ À XÀ   €‚@  ‚ € ž   €       Name        ~  ~  ~  ~  ~  ~  ~                ƒ  …       † @ Æ À X€€  €‚@  ‚ € ž   €       Value        „  „  „  „  „  „  „  …          ž   h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  h  i  k  k  k  k  k  k  k  k  k  l  l  l  l  l  l  l  l  l  l  m  m  m  m  m  m  n  n  n  n  n  n  n  n  o  o  o  o  o  o  p  m  q  l  r  v  v  v  v  v  v  w  w  w  w  w  w  w  w  w  w  w  w  w  w  w  w  w  w  w  x  x  x  x  x  v  y  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  }  }  }    }  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ‚  ƒ  ƒ  ƒ  …  ƒ  ˆ  ˆ  ˆ  ˆ  ‰  Š  Š  Š  ‹  ‹  ˆ  ‹                ‘  š    
+$   …   œ€€ †@@†€@†À@† Aš   €€Z@   €…@ Å   Ü€€ Æ@ÀÆ€ÀÆÀÀÆ€Áœ @€ÆÁAÚ  €€ÆB B BF‚BB ‚À €ÅÁ  €ÜA @ €¡€  Àû €       getgenv    NemesisPreBeta    Miscs 
+   Animation    Enable    pairs    Animations       ð?   KeyCode    Enum        @   playAnimation     $   ’  ’  ’  ’  ’  ’  ’  ’  ’  ’  “  “  “  “  “  “  “  “  “  ”  ”  ”  ”  ”  ”  ”  ”  ”  ”  •  •  •  –  “  —  š              Ÿ  §     	      E@  \ € @     E€  \ € @   €       Thread    UpdateCamlock 
+   UpdateSilent     	   ¢  ¢  ¢  ¢  ¥  ¥  ¥  ¥  §              ´  ¼   3   ‹ @ A  œ€€š   @ €W€À @ €ÀÀ À€…  œ€€ †@A†€A†ÀA† Bš   À€…@ Å  Ü€€ Æ@ÁÆ€ÁÆ€ÂÆÀÂ œ€€š    €„   †@C†€CWÀCÀ€…  †@DÄ   Æ€Äœ€ €À @ €À  @ €Â@  Â € Þ  „ € À    €  €ž    €       IsA    Mouse    Hit    Target    getgenv    NemesisPreBeta    Silent 	   Toggling    Enable    Chance 	   Settings 
+   HitChance       Y@   targets        @    CFrame    new    CFposition     3   µ  µ  µ  µ  µ  µ  µ  µ  µ  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ¶  ·  ·  ·  ·  ·  ¸  ¸  ¸  ¸  ¸  ¸  ¸  »  »  »  »  »  ¼          [                                   
+   
+   
+         
+      
+                                                               !   !   !   "   #   $   %   &   '   (   )   *   *   *   *   *   *   *   +   ,   -   .   /   0   1   2   3   4   5   5   5   5   5   6   7   8   9   9   9   :   ;   ;   ;   ;   ;   ;   ;   <   =   >   ?   @   A   A   A   A   A   A   A   B   C   D   E   F   F   F   F   F   F   G   G   G   G   G   G   H   I   J   K   L   M   M   M   M   M   M   M   N   O   P   Q   R   S   T   U   V   W   W   W   W   X   Y   Z   [   \   \   \   \   \   \   ]   ^   _   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   e   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   f   g   j   k   k   l   l   m   n   o   p   q   r   s   t   u   v   v   v   w   x   y   z   {   {   „   „   €   ˆ   †   –   ‹   Ÿ   Ÿ   Ÿ   ™   ¥   ¡   «   §   ®   ¯   ¯   º   º   ³   É   ¼   Ü   Ü   Ü   Ü   Í   ç   à   þ   þ   þ   þ   þ   ê            .  .  !  B  B  B  1  F  F  V  V  F  X  X  e  e  X  g  g      g  ‘  ‘  š  ‘  Ÿ  Ÿ  §  Ÿ  «  «  «  «  «  «  «  ¬  ¬  «  ¬  ®  ®  ®  ®  ®  ®  ®  ®  ®  ¯  ¯  ®  ¯  ³  ´  ´  ´  ¼  ¼  ¼  ´  ¼  ¼                  DYUHJB8ìášEe)ú|hMI=I”lnmlsTÜ1>}L)ä|hMJ=IŠlnmlmd9ì=,M|ÔLF}d
+,y¤\·UJñÌE  r
+ °qyäÃ$ŒcïÍ.Á9ÜôÎLGyåZ}Žnoh…ÚØNõ¯:‘¿Û‰–1(ó™réG<¸¿ùmç¯\ß›
